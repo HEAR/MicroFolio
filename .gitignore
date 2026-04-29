@@ -1,0 +1,26 @@
+# Données sensibles
+/data/*.json
+/data/*.css
+/data/*.js
+
+# Garder la structure du dossier
+!/data/.htaccess
+
+# Assets/contenus uploadés (images)
+/assets/images/**
+!/assets/images/.htaccess
+!/assets/images/thumbs/
+/assets/images/thumbs/**
+!/assets/images/thumbs/.htaccess
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+

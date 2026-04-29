@@ -1,0 +1,43 @@
+# Configuration Apache pour le Portfolio CMS
+# Compatible MAMP
+
+# Autoriser l'accès par défaut
+<IfModule mod_authz_core.c>
+    Require all granted
+</IfModule>
+
+# Activer le module rewrite si disponible
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Exclure les fichiers et dossiers existants
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+    
+    # Exclure les dossiers spéciaux (chemins relatifs au dossier du projet)
+    RewriteCond %{REQUEST_URI} admin/ [OR]
+    RewriteCond %{REQUEST_URI} data/ [OR]
+    RewriteCond %{REQUEST_URI} includes/ [OR]
+    RewriteCond %{REQUEST_URI} assets/
+    RewriteRule ^ - [L]
+    
+    # Exclure les fichiers PHP spéciaux
+    RewriteCond %{REQUEST_URI} index\.php$ [OR]
+    RewriteCond %{REQUEST_URI} rubrique\.php$ [OR]
+    RewriteCond %{REQUEST_URI} test\.php$ [OR]
+    RewriteCond %{REQUEST_URI} diagnostic\.php$
+    RewriteRule ^ - [L]
+    
+    # Si c'est la racine du projet (vide ou juste /), afficher index.php
+    RewriteCond %{REQUEST_URI} ^/?$
+    RewriteRule ^$ index.php [L]
+    
+    # Router vers rubrique.php avec le slug en paramètre
+    # Toute URL qui n'est pas un fichier/dossier existant est traitée comme un slug
+    # Le pattern matche tout ce qui n'est pas un slash
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^([^/]+)/?$ rubrique.php?slug=$1 [L,QSA]
+</IfModule>
+
