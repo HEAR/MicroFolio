@@ -25,6 +25,7 @@ Thumbs.db
 # IDE
 .idea/
 .vscode/
+microfolio.code-workspace
 *.swp
 *.swo
 
