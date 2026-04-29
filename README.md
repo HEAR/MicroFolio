@@ -117,5 +117,5 @@ Depuis `Pages` (`admin/rubriques.php`) :
 
 ## Support
 
-MicroFolio est conçu pour être simple et extensible. Adaptez-le librement à votre besoin.
+MicroFolio a été vibecodé pour les étudiant·es de la la Haute école des arts du Rhin.
 
