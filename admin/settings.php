@@ -7,31 +7,65 @@ $message = null;
 $error = null;
 
 // Traitement de la sauvegarde
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!validateCsrfToken($_POST['csrf_token'] ?? '')) {
         $error = 'Session invalide, veuillez recharger la page';
-    } else {
-    $siteName = trim($_POST['site_name'] ?? '');
-    $siteFooter = trim($_POST['site_footer'] ?? '');
-    $maintenanceMode = isset($_POST['maintenance_mode']);
-    $showMenuWithoutHomepage = isset($_POST['show_menu_without_homepage']);
-    $failedPasswordDetection = isset($_POST['failed_password_detection']);
-    
-    if (empty($siteName)) {
-        $error = 'Le nom du site ne peut pas être vide';
-    } else {
-        if (updateConfig([
-            'site_name' => $siteName,
-            'site_footer' => $siteFooter,
-            'maintenance_mode' => $maintenanceMode,
-            'show_menu_without_homepage' => $showMenuWithoutHomepage,
-            'failed_password_detection' => $failedPasswordDetection
-        ])) {
-            $message = 'Paramètres sauvegardés avec succès';
-        } else {
-            $error = 'Erreur lors de la sauvegarde';
+    } elseif (isset($_POST['regenerate_htaccess'])) {
+        $projectRoot = dirname(__DIR__);
+        $targets = [
+            $projectRoot . '/data/.htaccess',
+            $projectRoot . '/assets/.htaccess',
+            $projectRoot . '/assets/images/.htaccess',
+            $projectRoot . '/assets/images/thumbs/.htaccess',
+            $projectRoot . '/assets/docs/.htaccess'
+        ];
+        $missingBefore = 0;
+        foreach ($targets as $target) {
+            if (!file_exists($target)) {
+                $missingBefore++;
+            }
         }
-    }
+
+        ensureSecurityHtaccessFiles();
+
+        $missingAfter = 0;
+        foreach ($targets as $target) {
+            if (!file_exists($target)) {
+                $missingAfter++;
+            }
+        }
+
+        if ($missingAfter === 0) {
+            if ($missingBefore > 0) {
+                $message = '.htaccess régénérés avec succès (' . $missingBefore . ' fichier(s) créé(s)).';
+            } else {
+                $message = 'Tous les .htaccess de sécurité sont déjà présents.';
+            }
+        } else {
+            $error = 'Impossible de recréer tous les .htaccess (vérifiez les droits d\'écriture).';
+        }
+    } elseif (isset($_POST['save_settings'])) {
+        $siteName = trim($_POST['site_name'] ?? '');
+        $siteFooter = trim($_POST['site_footer'] ?? '');
+        $maintenanceMode = isset($_POST['maintenance_mode']);
+        $showMenuWithoutHomepage = isset($_POST['show_menu_without_homepage']);
+        $failedPasswordDetection = isset($_POST['failed_password_detection']);
+        
+        if (empty($siteName)) {
+            $error = 'Le nom du site ne peut pas être vide';
+        } else {
+            if (updateConfig([
+                'site_name' => $siteName,
+                'site_footer' => $siteFooter,
+                'maintenance_mode' => $maintenanceMode,
+                'show_menu_without_homepage' => $showMenuWithoutHomepage,
+                'failed_password_detection' => $failedPasswordDetection
+            ])) {
+                $message = 'Paramètres sauvegardés avec succès';
+            } else {
+                $error = 'Erreur lors de la sauvegarde';
+            }
+        }
     }
 }
 
@@ -173,6 +207,21 @@ $failedPasswordDetection = !array_key_exists('failed_password_detection', $confi
 
                     <button type="submit" class="btn btn-primary">
                         <i class="bi bi-save"></i> Enregistrer les paramètres
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card admin-section-card">
+            <div class="card-header">
+                <h5 class="mb-0">Maintenance sécurité fichiers</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3">Relance la régénération des fichiers <code>.htaccess</code> de sécurité s'ils sont manquants.</p>
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
+                    <button type="submit" name="regenerate_htaccess" value="1" class="btn btn-outline-primary">
+                        <i class="bi bi-shield-check"></i> Régénérer les .htaccess
                     </button>
                 </form>
             </div>
