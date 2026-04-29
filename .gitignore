@@ -13,6 +13,10 @@
 /assets/images/thumbs/**
 !/assets/images/thumbs/.htaccess
 
+# Assets/contenus uploadés (documents)
+/assets/docs/**
+!/assets/docs/.htaccess
+
 # Fichiers système
 .DS_Store
 Thumbs.db

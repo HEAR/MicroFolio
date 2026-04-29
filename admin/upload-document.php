@@ -1,6 +1,6 @@
 <?php
 /**
- * Endpoint pour l'upload d'images
+ * Endpoint pour l'upload de documents PDF
  */
 require_once __DIR__ . '/../includes/auth.php';
 requireAuth();
@@ -20,13 +20,13 @@ if (!validateCsrfToken($csrfToken)) {
     exit;
 }
 
-if (!isset($_FILES['image'])) {
+if (!isset($_FILES['document'])) {
     http_response_code(400);
     echo json_encode(['error' => 'Aucun fichier fourni']);
     exit;
 }
 
-$result = uploadImage($_FILES['image']);
+$result = uploadDocument($_FILES['document']);
 
 if (isset($result['error'])) {
     http_response_code(400);

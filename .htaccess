@@ -22,11 +22,9 @@
     RewriteCond %{REQUEST_URI} assets/
     RewriteRule ^ - [L]
     
-    # Exclure les fichiers PHP spéciaux
+    # Exclure les fichiers PHP principaux
     RewriteCond %{REQUEST_URI} index\.php$ [OR]
-    RewriteCond %{REQUEST_URI} rubrique\.php$ [OR]
-    RewriteCond %{REQUEST_URI} test\.php$ [OR]
-    RewriteCond %{REQUEST_URI} diagnostic\.php$
+    RewriteCond %{REQUEST_URI} rubrique\.php$
     RewriteRule ^ - [L]
     
     # Si c'est la racine du projet (vide ou juste /), afficher index.php

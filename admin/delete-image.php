@@ -13,6 +13,13 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+$csrfToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($_POST['csrf_token'] ?? '');
+if (!validateCsrfToken($csrfToken)) {
+    http_response_code(403);
+    echo json_encode(['error' => 'Token CSRF invalide']);
+    exit;
+}
+
 $imageUrl = $_POST['url'] ?? '';
 
 if (empty($imageUrl)) {

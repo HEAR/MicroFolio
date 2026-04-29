@@ -1,6 +1,6 @@
 <?php
 /**
- * Endpoint pour l'upload d'images
+ * Endpoint pour supprimer un document PDF
  */
 require_once __DIR__ . '/../includes/auth.php';
 requireAuth();
@@ -20,17 +20,16 @@ if (!validateCsrfToken($csrfToken)) {
     exit;
 }
 
-if (!isset($_FILES['image'])) {
+$documentUrl = $_POST['url'] ?? '';
+if (empty($documentUrl)) {
     http_response_code(400);
-    echo json_encode(['error' => 'Aucun fichier fourni']);
+    echo json_encode(['error' => 'URL du document manquante']);
     exit;
 }
 
-$result = uploadImage($_FILES['image']);
-
-if (isset($result['error'])) {
-    http_response_code(400);
-    echo json_encode($result);
+if (deleteDocument($documentUrl)) {
+    echo json_encode(['success' => true, 'message' => 'Document supprimé avec succès']);
 } else {
-    echo json_encode($result);
+    http_response_code(400);
+    echo json_encode(['error' => 'Erreur lors de la suppression du document']);
 }

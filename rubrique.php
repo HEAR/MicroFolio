@@ -4,6 +4,13 @@
  */
 require_once __DIR__ . '/includes/functions.php';
 
+if (isMaintenanceMode() && !isLoggedIn()) {
+    http_response_code(503);
+    $basePath = defined('BASE_PATH') ? BASE_PATH : '';
+    header('Location: ' . $basePath . '/');
+    exit;
+}
+
 // Récupérer le slug depuis le paramètre GET (routé par .htaccess)
 $slug = $_GET['slug'] ?? '';
 
@@ -91,9 +98,21 @@ if (!empty($rubrique['is_homepage'])) {
     <!-- CSS personnalisé -->
     <style>
         <?= file_exists(CUSTOM_CSS_FILE) ? file_get_contents(CUSTOM_CSS_FILE) : '/* CSS personnalisé */' ?>
+        /* Fallback tailles additionnelles si non définies dans le CSS personnalisé */
+        .rubrique-image-wrapper.image-size-quarter { grid-column: span 3; }
+        .rubrique-image-wrapper.image-size-sixth { grid-column: span 2; }
+        @media (max-width: 768px) {
+            .rubrique-image-wrapper.image-size-quarter,
+            .rubrique-image-wrapper.image-size-sixth { grid-column: span 1; }
+        }
     </style>
 </head>
 <body>
+    <?php if (isMaintenanceMode() && isLoggedIn()): ?>
+        <div style="background:#111;color:#fff;padding:10px 16px;text-align:center;font-size:14px;">
+            Vous consultez le site en administrateur
+        </div>
+    <?php endif; ?>
     <header class="site-header">
         <div class="container">
             <h1 class="site-title">
@@ -115,16 +134,18 @@ if (!empty($rubrique['is_homepage'])) {
             <div class="container">
                 <h2 class="rubrique-title"><?= htmlspecialchars($rubrique['title']) ?></h2>
                 
-                <?php if (!empty($rubrique['images'])): ?>
+                <?php $visibleImages = array_values(array_filter($rubrique['images'], function($img) { return !isImageHidden($img); })); ?>
+                <?php $galleryPosition = (($rubrique['gallery_position'] ?? 'before') === 'after') ? 'after' : 'before'; ?>
+                <?php if (!empty($visibleImages) && $galleryPosition === 'before'): ?>
                     <div class="rubrique-images">
-                        <?php foreach ($rubrique['images'] as $image): 
+                        <?php foreach ($visibleImages as $image): 
                             $imgInfo = getImageInfo($image);
                             $fullUrl = normalizeImageUrl($imgInfo['url']);
                             // Utiliser le thumbnail selon la taille de l'image
                             $displayUrl = $imgInfo['thumbnail_url'] ?: $fullUrl;
                         ?>
                             <figure class="rubrique-image-wrapper image-size-<?= htmlspecialchars($imgInfo['size']) ?>">
-                                <a href="<?= htmlspecialchars($fullUrl) ?>" target="_blank" class="rubrique-image-link">
+                                <a href="<?= htmlspecialchars($fullUrl) ?>" target="_blank" class="rubrique-image-link" data-group="gallery">
                                     <img src="<?= htmlspecialchars($displayUrl) ?>" alt="<?= htmlspecialchars($imgInfo['caption'] ?: $rubrique['title']) ?>" class="rubrique-image">
                                 </a>
                                 <?php if (!empty($imgInfo['caption'])): ?>
@@ -138,6 +159,26 @@ if (!empty($rubrique['is_homepage'])) {
                 <div class="rubrique-content">
                     <?= parseMarkdown($rubrique['content']) ?>
                 </div>
+
+                <?php if (!empty($visibleImages) && $galleryPosition === 'after'): ?>
+                    <div class="rubrique-images">
+                        <?php foreach ($visibleImages as $image): 
+                            $imgInfo = getImageInfo($image);
+                            $fullUrl = normalizeImageUrl($imgInfo['url']);
+                            // Utiliser le thumbnail selon la taille de l'image
+                            $displayUrl = $imgInfo['thumbnail_url'] ?: $fullUrl;
+                        ?>
+                            <figure class="rubrique-image-wrapper image-size-<?= htmlspecialchars($imgInfo['size']) ?>">
+                                <a href="<?= htmlspecialchars($fullUrl) ?>" target="_blank" class="rubrique-image-link" data-group="gallery">
+                                    <img src="<?= htmlspecialchars($displayUrl) ?>" alt="<?= htmlspecialchars($imgInfo['caption'] ?: $rubrique['title']) ?>" class="rubrique-image">
+                                </a>
+                                <?php if (!empty($imgInfo['caption'])): ?>
+                                    <figcaption class="rubrique-image-caption"><?= htmlspecialchars($imgInfo['caption']) ?></figcaption>
+                                <?php endif; ?>
+                            </figure>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
             </div>
         </section>
     </main>

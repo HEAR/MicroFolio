@@ -170,6 +170,7 @@ function createRubrique($data) {
         'slug' => $data['slug'] ?? '',
         'content' => $data['content'] ?? '',
         'images' => $data['images'] ?? [],
+        'gallery_position' => (($data['gallery_position'] ?? 'before') === 'after') ? 'after' : 'before',
         'order' => count($rubriques),
         'is_homepage' => $isHomepage,
         'created_at' => date('Y-m-d H:i:s'),
@@ -227,11 +228,29 @@ function updateRubrique($id, $data) {
             $rubrique['content'] = $data['content'] ?? $rubrique['content'];
             $rubrique['images'] = $newImages;
             $rubrique['is_homepage'] = $isHomepage;
+            $rubrique['gallery_position'] = (($data['gallery_position'] ?? ($rubrique['gallery_position'] ?? 'before')) === 'after') ? 'after' : 'before';
             $rubrique['updated_at'] = date('Y-m-d H:i:s');
             break;
         }
     }
     return writeJsonFile(RUBRIQUES_FILE, $rubriques);
+}
+
+/**
+ * Mettre a jour uniquement les images d'une page
+ */
+function updateRubriqueImages($id, $images) {
+    $rubriques = readJsonFile(RUBRIQUES_FILE);
+
+    foreach ($rubriques as &$rubrique) {
+        if (($rubrique['id'] ?? '') === $id) {
+            $rubrique['images'] = is_array($images) ? $images : [];
+            $rubrique['updated_at'] = date('Y-m-d H:i:s');
+            return writeJsonFile(RUBRIQUES_FILE, $rubriques);
+        }
+    }
+
+    return false;
 }
 
 /**
@@ -315,6 +334,14 @@ function updateConfig($data) {
 }
 
 /**
+ * Vérifier si le mode maintenance est activé
+ */
+function isMaintenanceMode() {
+    $config = getConfig();
+    return !empty($config['maintenance_mode']);
+}
+
+/**
  * Générer un slug à partir d'un titre
  */
 function generateSlug($title) {
@@ -333,76 +360,88 @@ function getRubriqueUrl($slug) {
 }
 
 /**
- * Normaliser l'URL d'une image pour inclure le BASE_PATH si nécessaire
+ * Canoniser un chemin d'asset local pour stockage (format portable)
  */
-function normalizeImageUrl($url) {
+function normalizeLocalAssetPath($url) {
     if (empty($url)) {
         return $url;
     }
-    
-    // Si c'est un tableau (nouvelle structure avec url, caption, size)
+
     if (is_array($url)) {
         $url = $url['url'] ?? $url;
     }
-    
-    // Corriger les anciennes URLs absolues/relatives qui contiennent un préfixe de dossier obsolète
-    // en ne conservant que la partie à partir de /assets/images.
-    $assetsPos = strpos($url, '/assets/images/');
-    if ($assetsPos !== false) {
-        $url = substr($url, $assetsPos);
-    }
 
-    // Si c'est une URL externe qui ne pointe pas vers nos images locales, la retourner telle quelle.
     if (preg_match('/^https?:\/\//', $url)) {
         return $url;
     }
-    
-    $basePath = defined('BASE_PATH') ? BASE_PATH : '';
-    
-    // Corriger les URLs qui contiennent /admin/assets/images/ (erreur de génération)
-    // Cas 1: URL avec BASE_PATH : /Hear-2026-portfolio/admin/assets/images/...
-    if ($basePath && strpos($url, $basePath . '/admin/assets/images/') !== false) {
-        $url = str_replace($basePath . '/admin/assets/images/', $basePath . '/assets/images/', $url);
+
+    $basePath = BASE_PATH;
+
+    if ($basePath && strpos($url, $basePath) === 0) {
+        $url = substr($url, strlen($basePath));
     }
-    // Cas 2: URL sans BASE_PATH : /admin/assets/images/...
+
     $url = str_replace('/admin/assets/images/', '/assets/images/', $url);
-    
-    // Si BASE_PATH est vide, retourner l'URL telle quelle
-    if (empty($basePath)) {
-        return $url;
+
+    $assetsPos = strpos($url, '/assets/images/');
+    if ($assetsPos !== false) {
+        return substr($url, $assetsPos);
     }
-    
-    // Si l'URL commence déjà par BASE_PATH, la retourner telle quelle
-    if (strpos($url, $basePath) === 0) {
-        return $url;
+
+    if (strpos($url, 'assets/images/') === 0) {
+        return '/' . $url;
     }
-    
-    // Si l'URL commence par /assets/images, ajouter BASE_PATH
-    if (strpos($url, '/assets/images') === 0) {
-        return $basePath . $url;
-    }
-    
-    // Pour toute autre URL relative commençant par /, ajouter BASE_PATH
-    if (strpos($url, '/') === 0) {
-        return $basePath . $url;
-    }
-    
+
     return $url;
+}
+
+/**
+ * Résoudre un chemin d'asset en URL affichable selon l'environnement
+ */
+function resolveAssetUrl($url) {
+    if (empty($url)) {
+        return $url;
+    }
+
+    $normalized = normalizeLocalAssetPath($url);
+    if (preg_match('/^https?:\/\//', $normalized)) {
+        return $normalized;
+    }
+
+    if (strpos($normalized, '/') !== 0) {
+        return $normalized;
+    }
+
+    return BASE_PATH . $normalized;
+}
+
+/**
+ * Compatibilité legacy: normaliser l'URL d'image pour affichage
+ */
+function normalizeImageUrl($url) {
+    return resolveAssetUrl($url);
 }
 
 /**
  * Obtenir les informations d'une image (support ancien et nouveau format)
  */
 function getImageInfo($image) {
+    $allowedSizes = ['sixth', 'quarter', 'small', 'medium', 'large', 'full'];
+
     // Nouveau format : tableau avec url, caption, size
     if (is_array($image)) {
         $url = $image['url'] ?? '';
         $size = $image['size'] ?? 'medium';
+        if (!in_array($size, $allowedSizes, true)) {
+            $size = 'medium';
+        }
         $thumbnailUrl = getThumbnailUrl($url, $size);
         return [
             'url' => normalizeImageUrl($url),
             'caption' => $image['caption'] ?? '',
             'size' => $size,
+            'hidden' => !empty($image['hidden']),
+            'is_thumbnail' => !empty($image['is_thumbnail']),
             'thumbnail_url' => $thumbnailUrl ? normalizeImageUrl($thumbnailUrl) : null
         ];
     }
@@ -414,8 +453,42 @@ function getImageInfo($image) {
         'url' => normalizeImageUrl($image),
         'caption' => '',
         'size' => $size,
+        'hidden' => false,
+        'is_thumbnail' => false,
         'thumbnail_url' => $thumbnailUrl ? normalizeImageUrl($thumbnailUrl) : null
     ];
+}
+
+/**
+ * Vérifier si une image est masquée
+ */
+function isImageHidden($image) {
+    return is_array($image) && !empty($image['hidden']);
+}
+
+/**
+ * Obtenir l'image de miniature prioritaire d'une page.
+ * Priorité: image non masquée marquée thumbnail, sinon première non masquée.
+ */
+function getRubriqueThumbnailImage($rubrique) {
+    $images = $rubrique['images'] ?? [];
+    if (!is_array($images) || empty($images)) {
+        return null;
+    }
+
+    foreach ($images as $image) {
+        if (!isImageHidden($image) && is_array($image) && !empty($image['is_thumbnail'])) {
+            return $image;
+        }
+    }
+
+    foreach ($images as $image) {
+        if (!isImageHidden($image)) {
+            return $image;
+        }
+    }
+
+    return null;
 }
 
 /**
@@ -460,7 +533,7 @@ function getThumbnailUrl($imageUrl, $size = 'medium') {
     // Vérifier si le thumbnail existe
     $thumbnailPath = THUMBNAILS_DIR . '/' . $thumbnailFilename;
     if (file_exists($thumbnailPath)) {
-        return $basePath . '/assets/images/thumbs/' . $thumbnailFilename;
+        return '/assets/images/thumbs/' . $thumbnailFilename;
     }
     
     // Si le thumbnail n'existe pas, essayer de le générer
@@ -505,8 +578,18 @@ function uploadImage($file) {
         return ['error' => 'Fichier trop volumineux (max 5MB)'];
     }
     
-    // Générer un nom de fichier unique
-    $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+    $mimeToExtension = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/gif' => 'gif',
+        'image/webp' => 'webp'
+    ];
+
+    // Générer un nom de fichier unique avec extension contrôlée
+    $extension = $mimeToExtension[$mimeType] ?? null;
+    if ($extension === null) {
+        return ['error' => 'Type de fichier non autorisé'];
+    }
     $filename = uniqid() . '_' . time() . '.' . $extension;
     $destination = IMAGES_DIR . '/' . $filename;
     
@@ -514,27 +597,11 @@ function uploadImage($file) {
         return ['error' => 'Impossible de déplacer le fichier'];
     }
     
-    // Générer l'URL correcte (sans /admin/)
-    // Recalculer BASE_PATH pour être sûr d'avoir le bon chemin
-    $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
-    $scriptDir = dirname($scriptName);
-    
-    // Si le script est dans admin/, remonter d'un niveau
-    if (basename($scriptDir) === 'admin') {
-        $scriptDir = dirname($scriptDir);
-    }
-    
-    if ($scriptDir === '/' || $scriptDir === '\\' || $scriptDir === '.') {
-        $basePath = '';
-    } else {
-        $basePath = rtrim($scriptDir, '/');
-    }
-    
-    $imageUrl = $basePath . '/assets/images/' . $filename;
+    $imageUrl = '/assets/images/' . $filename;
     
     // Générer tous les thumbnails nécessaires
     // generateThumbnail() vérifie déjà si le thumbnail existe et ne le régénère pas
-    $sizes = ['small', 'medium', 'large', 'full'];
+    $sizes = ['sixth', 'quarter', 'small', 'medium', 'large', 'full'];
     $thumbnails = [];
     foreach ($sizes as $size) {
         $thumbUrl = generateThumbnail($destination, $filename, $size);
@@ -551,10 +618,100 @@ function uploadImage($file) {
 }
 
 /**
+ * Upload d'un document PDF
+ */
+function uploadDocument($file) {
+    if (!isset($file['error']) || is_array($file['error'])) {
+        return ['error' => 'Paramètres invalides'];
+    }
+
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        return ['error' => 'Erreur lors de l\'upload'];
+    }
+
+    // Vérifier le type de fichier (PDF uniquement)
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mimeType = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+
+    if ($mimeType !== 'application/pdf') {
+        return ['error' => 'Seuls les fichiers PDF sont autorisés'];
+    }
+
+    // Vérifier la taille (max 20MB)
+    if ($file['size'] > 20 * 1024 * 1024) {
+        return ['error' => 'Fichier trop volumineux (max 20MB)'];
+    }
+
+    // Conserver le nom d'origine (nettoyé) quand possible
+    $originalName = $file['name'] ?? 'document.pdf';
+    $baseName = pathinfo($originalName, PATHINFO_FILENAME);
+    $baseName = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $baseName);
+    $baseName = preg_replace('/[^a-zA-Z0-9_-]+/', '-', $baseName);
+    $baseName = trim($baseName, '-');
+    if ($baseName === '' || $baseName === null) {
+        $baseName = 'document';
+    }
+
+    $filename = $baseName . '.pdf';
+    $counter = 1;
+    while (file_exists(DOCS_DIR . '/' . $filename)) {
+        $filename = $baseName . '-' . $counter . '.pdf';
+        $counter++;
+    }
+
+    $destination = DOCS_DIR . '/' . $filename;
+
+    if (!move_uploaded_file($file['tmp_name'], $destination)) {
+        return ['error' => 'Impossible de déplacer le fichier'];
+    }
+
+    return [
+        'success' => true,
+        'url' => '/assets/docs/' . $filename
+    ];
+}
+
+/**
+ * Supprimer un document PDF local
+ */
+function deleteDocument($url) {
+    if (empty($url)) {
+        return false;
+    }
+
+    // Refuser les URLs externes
+    if (preg_match('/^https?:\/\//i', $url) && strpos($url, BASE_PATH . '/assets/docs/') === false) {
+        return false;
+    }
+
+    $path = parse_url($url, PHP_URL_PATH) ?: $url;
+    $normalized = normalizeLocalAssetPath($path);
+
+    if (strpos($normalized, '/assets/docs/') !== 0) {
+        return false;
+    }
+
+    $filename = basename($normalized);
+    if (!preg_match('/\.pdf$/i', $filename)) {
+        return false;
+    }
+
+    $fullPath = DOCS_DIR . '/' . $filename;
+    if (!file_exists($fullPath)) {
+        return false;
+    }
+
+    return unlink($fullPath);
+}
+
+/**
  * Obtenir les dimensions max pour une taille donnée
  */
 function getThumbnailDimensions($size) {
     $dimensions = [
+        'sixth' => ['width' => 240, 'height' => 240],
+        'quarter' => ['width' => 320, 'height' => 320],
         'small' => ['width' => 400, 'height' => 400],
         'medium' => ['width' => 600, 'height' => 600],
         'large' => ['width' => 800, 'height' => 800],
@@ -582,8 +739,7 @@ function generateThumbnail($sourcePath, $filename, $size = 'medium', $quality = 
     
     // Si le thumbnail existe déjà, retourner son URL sans le régénérer
     if (file_exists($thumbnailPath)) {
-        $basePath = getBasePath();
-        return $basePath . '/assets/images/thumbs/' . $thumbnailFilename;
+        return '/assets/images/thumbs/' . $thumbnailFilename;
     }
     
     // Obtenir les informations de l'image
@@ -667,10 +823,8 @@ function generateThumbnail($sourcePath, $filename, $size = 'medium', $quality = 
         return null;
     }
     
-    // Générer l'URL du thumbnail
-    $basePath = getBasePath();
-    
-    return $basePath . '/assets/images/thumbs/' . $thumbnailFilename;
+    // Générer l'URL du thumbnail (format portable)
+    return '/assets/images/thumbs/' . $thumbnailFilename;
 }
 
 /**
@@ -721,7 +875,7 @@ function deleteImage($url) {
     }
     
     // Supprimer tous les thumbnails de toutes les tailles
-    $sizes = ['small', 'medium', 'large', 'full'];
+    $sizes = ['sixth', 'quarter', 'small', 'medium', 'large', 'full'];
     foreach ($sizes as $size) {
         $thumbnailFilename = 'thumb_' . $size . '_' . $filename;
         $thumbnailPath = THUMBNAILS_DIR . '/' . $thumbnailFilename;
@@ -901,6 +1055,13 @@ function parseMarkdown($text) {
     
     // Liens
     $text = preg_replace('/\[([^\]]+)\]\(([^\)]+)\)/', '<a href="$2">$1</a>', $text);
+
+    // Ouvrir les liens PDF dans un nouvel onglet
+    $text = preg_replace(
+        '/<a href="([^"]+\.pdf(?:\?[^"]*)?)">([^<]+)<\/a>/i',
+        '<a href="$1" target="_blank" rel="noopener noreferrer">$2</a>',
+        $text
+    );
     
     // Listes non ordonnées
     $lines = explode("\n", $text);

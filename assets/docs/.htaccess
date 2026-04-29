@@ -1,9 +1,9 @@
-# Autoriser l'accès aux thumbnails
+# Autoriser l'accès aux documents PDF
 <IfModule mod_authz_core.c>
     Require all granted
 </IfModule>
 
-# Empêcher l'exécution de scripts dans le dossier de thumbnails
+# Empêcher l'exécution de scripts dans le dossier documents
 <FilesMatch "\.(php|phtml|phar|cgi|pl|py|sh)$">
     <IfModule mod_authz_core.c>
         Require all denied

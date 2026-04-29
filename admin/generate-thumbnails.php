@@ -46,7 +46,7 @@ foreach ($rubriques as $rubrique) {
             // Vérifier que le fichier existe
             if (file_exists($fullPath)) {
                 $filename = basename($fullPath);
-                $sizes = ['small', 'medium', 'large', 'full'];
+                $sizes = ['sixth', 'quarter', 'small', 'medium', 'large', 'full'];
                 $size = $imgInfo['size'] ?? 'medium';
                 
                 // Générer tous les thumbnails pour cette image
@@ -82,5 +82,5 @@ echo "<p>✅ $generated thumbnail(s) généré(s)</p>";
 if ($errors > 0) {
     echo "<p>❌ $errors erreur(s)</p>";
 }
-echo "<p><a href='rubriques.php'>Retour aux rubriques</a></p>";
+echo "<p><a href='rubriques.php'>Retour aux pages</a></p>";
 ?>

@@ -44,10 +44,13 @@ define('USERS_FILE', DATA_DIR . '/users.json');
 define('CUSTOM_CSS_FILE', DATA_DIR . '/custom.css');
 define('CUSTOM_JS_FILE', DATA_DIR . '/custom.js');
 define('CONFIG_FILE', DATA_DIR . '/config.json');
+define('LOGIN_ATTEMPTS_FILE', DATA_DIR . '/login_attempts.json');
 define('IMAGES_DIR', __DIR__ . '/../assets/images');
 define('THUMBNAILS_DIR', __DIR__ . '/../assets/images/thumbs');
+define('DOCS_DIR', __DIR__ . '/../assets/docs');
 // IMAGES_URL est déjà défini plus haut avec BASE_PATH
 define('THUMBNAILS_URL', BASE_PATH . '/assets/images/thumbs');
+define('DOCS_URL', BASE_PATH . '/assets/docs');
 
 // Créer le dossier data s'il n'existe pas
 if (!file_exists(DATA_DIR)) {
@@ -63,6 +66,32 @@ if (!file_exists(IMAGES_DIR)) {
 if (!file_exists(THUMBNAILS_DIR)) {
     mkdir(THUMBNAILS_DIR, 0755, true);
 }
+
+// Créer le dossier docs s'il n'existe pas
+if (!file_exists(DOCS_DIR)) {
+    mkdir(DOCS_DIR, 0755, true);
+}
+
+/**
+ * Regenerer les .htaccess de securite s'ils sont manquants
+ */
+function ensureSecurityHtaccessFiles() {
+    $rules = [
+        __DIR__ . '/../data/.htaccess' => "# Proteger le dossier data\n<IfModule mod_authz_core.c>\n    Require all denied\n</IfModule>\n",
+        __DIR__ . '/../assets/.htaccess' => "# Autoriser l'acces aux assets\n<IfModule mod_authz_core.c>\n    Require all granted\n</IfModule>\n",
+        __DIR__ . '/../assets/images/.htaccess' => "# Autoriser l'acces aux images\n<IfModule mod_authz_core.c>\n    Require all granted\n</IfModule>\n\n# Empecher l'execution de scripts dans le dossier d'uploads\n<FilesMatch \"\\.(php|phtml|phar|cgi|pl|py|sh)$\">\n    <IfModule mod_authz_core.c>\n        Require all denied\n    </IfModule>\n</FilesMatch>\n",
+        __DIR__ . '/../assets/images/thumbs/.htaccess' => "# Autoriser l'acces aux thumbnails\n<IfModule mod_authz_core.c>\n    Require all granted\n</IfModule>\n\n# Empecher l'execution de scripts dans le dossier de thumbnails\n<FilesMatch \"\\.(php|phtml|phar|cgi|pl|py|sh)$\">\n    <IfModule mod_authz_core.c>\n        Require all denied\n    </IfModule>\n</FilesMatch>\n",
+        __DIR__ . '/../assets/docs/.htaccess' => "# Autoriser l'acces aux documents PDF\n<IfModule mod_authz_core.c>\n    Require all granted\n</IfModule>\n\n# Empecher l'execution de scripts dans le dossier documents\n<FilesMatch \"\\.(php|phtml|phar|cgi|pl|py|sh)$\">\n    <IfModule mod_authz_core.c>\n        Require all denied\n    </IfModule>\n</FilesMatch>\n"
+    ];
+
+    foreach ($rules as $path => $content) {
+        if (!file_exists($path)) {
+            @file_put_contents($path, $content);
+        }
+    }
+}
+
+ensureSecurityHtaccessFiles();
 
 // Initialiser les fichiers s'ils n'existent pas
 if (!file_exists(RUBRIQUES_FILE)) {
@@ -162,6 +191,14 @@ body {
 
 .rubrique-image-wrapper.image-size-small {
     grid-column: span 4;
+}
+
+.rubrique-image-wrapper.image-size-quarter {
+    grid-column: span 3;
+}
+
+.rubrique-image-wrapper.image-size-sixth {
+    grid-column: span 2;
 }
 
 .rubrique-image-wrapper.image-size-medium {
@@ -428,6 +465,8 @@ body {
     }
     
     .rubrique-image-wrapper.image-size-small,
+    .rubrique-image-wrapper.image-size-quarter,
+    .rubrique-image-wrapper.image-size-sixth,
     .rubrique-image-wrapper.image-size-medium,
     .rubrique-image-wrapper.image-size-large,
     .rubrique-image-wrapper.image-size-full {
@@ -454,9 +493,31 @@ if (!file_exists(CONFIG_FILE)) {
         'external_css' => [],
         'external_js' => [],
         'site_name' => 'Mon Portfolio',
-        'site_footer' => '© ' . date('Y') . ' Mon Portfolio'
+        'site_footer' => '© ' . date('Y') . ' Mon Portfolio',
+        'maintenance_mode' => false,
+        'show_menu_without_homepage' => true,
+        'failed_password_detection' => true
     ];
     file_put_contents(CONFIG_FILE, json_encode($defaultConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+}
+
+if (!file_exists(LOGIN_ATTEMPTS_FILE)) {
+    file_put_contents(LOGIN_ATTEMPTS_FILE, json_encode([], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+}
+
+/**
+ * Appliquer des en-têtes HTTP de sécurité globaux
+ */
+function applySecurityHeaders() {
+    if (headers_sent()) {
+        return;
+    }
+
+    header('X-Frame-Options: SAMEORIGIN');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('X-Content-Type-Options: nosniff');
+    header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
+    header("Content-Security-Policy: default-src 'self'; img-src 'self' data: https: http:; style-src 'self' 'unsafe-inline' https:; script-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; connect-src 'self'; frame-src https://www.youtube.com https://youtube.com https://youtu.be; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'");
 }
 
 // Fonction pour obtenir le nom du site (depuis config ou constante)
@@ -473,6 +534,17 @@ function getSiteFooter() {
 
 // Démarrer la session
 if (session_status() === PHP_SESSION_NONE) {
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'domain' => '',
+        'secure' => $isHttps,
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
     session_start();
 }
+
+applySecurityHeaders();
 

@@ -18,7 +18,7 @@ $showRegister = !adminExists();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connexion - Admin Portfolio</title>
+    <title>Connexion - MicroFolio Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
@@ -40,7 +40,7 @@ $showRegister = !adminExists();
 </head>
 <body>
     <div class="login-card">
-        <h2 class="text-center mb-4">Portfolio CMS</h2>
+        <h2 class="text-center mb-4">MicroFolio</h2>
         
         <?php if ($showRegister): ?>
             <h5 class="text-center mb-3 text-muted">Création du compte administrateur</h5>
@@ -49,6 +49,7 @@ $showRegister = !adminExists();
             <?php endif; ?>
             
             <form method="POST">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
                 <div class="mb-3">
                     <label for="username" class="form-label">Nom d'utilisateur</label>
                     <input type="text" class="form-control" id="username" name="username" required>
@@ -70,6 +71,7 @@ $showRegister = !adminExists();
             <?php endif; ?>
             
             <form method="POST">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
                 <div class="mb-3">
                     <label for="username" class="form-label">Nom d'utilisateur</label>
                     <input type="text" class="form-control" id="username" name="username" required>

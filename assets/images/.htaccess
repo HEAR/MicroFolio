@@ -2,3 +2,10 @@
 <IfModule mod_authz_core.c>
     Require all granted
 </IfModule>
+
+# Empêcher l'exécution de scripts dans le dossier d'uploads
+<FilesMatch "\.(php|phtml|phar|cgi|pl|py|sh)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+</FilesMatch>

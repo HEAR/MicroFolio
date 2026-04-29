@@ -8,7 +8,9 @@ $error = null;
 
 // Traitement de la mise à jour du profil
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['update_username'])) {
+    if (!validateCsrfToken($_POST['csrf_token'] ?? '')) {
+        $error = 'Session invalide, veuillez recharger la page';
+    } elseif (isset($_POST['update_username'])) {
         $newUsername = trim($_POST['new_username'] ?? '');
         $password = $_POST['password'] ?? '';
         
@@ -76,14 +78,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Profil - Admin Portfolio</title>
+    <title>Profil - MicroFolio Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="admin.css">
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="dashboard.php">Portfolio CMS</a>
+            <a class="navbar-brand" href="dashboard.php">MicroFolio</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -96,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="rubriques.php">
-                            <i class="bi bi-folder"></i> Rubriques
+                            <i class="bi bi-folder"></i> Pages
                         </a>
                     </li>
                     <li class="nav-item">
@@ -139,17 +142,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         <?php endif; ?>
 
-        <h1 class="mb-4">Mon profil</h1>
+        <div class="admin-page-header">
+            <h1 class="admin-page-title">Mon profil</h1>
+            <a href="<?= BASE_PATH ?>/index.php" target="_blank" class="btn btn-outline-secondary">
+                <i class="bi bi-eye"></i> Voir le site
+            </a>
+        </div>
 
         <div class="row">
             <div class="col-md-6">
-                <div class="card mb-4">
+                <div class="card admin-section-card mb-4">
                     <div class="card-header">
                         <h5 class="mb-0">Changer le nom d'utilisateur</h5>
                     </div>
                     <div class="card-body">
                         <form method="POST">
                             <input type="hidden" name="update_username" value="1">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
                             <div class="mb-3">
                                 <label for="current_username" class="form-label">Nom d'utilisateur actuel</label>
                                 <input type="text" class="form-control" id="current_username" 
@@ -172,13 +181,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
 
             <div class="col-md-6">
-                <div class="card">
+                <div class="card admin-section-card">
                     <div class="card-header">
                         <h5 class="mb-0">Changer le mot de passe</h5>
                     </div>
                     <div class="card-body">
                         <form method="POST">
                             <input type="hidden" name="update_password" value="1">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrfToken()) ?>">
                             <div class="mb-3">
                                 <label for="current_password" class="form-label">Mot de passe actuel</label>
                                 <input type="password" class="form-control" id="current_password" name="current_password" required>
