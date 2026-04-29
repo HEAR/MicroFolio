@@ -841,10 +841,6 @@ if (isset($_GET['id']) && $action === 'edit') {
                         images.push({ url: normalizeLocalImageUrl(data.url), caption: '', size: 'medium', hidden: false, is_thumbnail: false });
                         updateImagesDisplay();
                         imageUpload.value = '';
-                        // Afficher un message si un thumbnail a été généré
-                        if (data.thumbnail) {
-                            console.log('Thumbnail généré: ' + data.thumbnail);
-                        }
                     }
                 })
                 .catch(error => {
