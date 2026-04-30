@@ -492,6 +492,92 @@ function getRubriqueThumbnailImage($rubrique) {
 }
 
 /**
+ * Calculer le poids total de assets + data (en octets)
+ */
+function getStorageUsageBytes() {
+    $directories = [
+        __DIR__ . '/../assets',
+        DATA_DIR
+    ];
+
+    $totalBytes = 0;
+
+    foreach ($directories as $directory) {
+        if (!is_dir($directory)) {
+            continue;
+        }
+
+        try {
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS)
+            );
+
+            foreach ($iterator as $fileInfo) {
+                if ($fileInfo->isFile()) {
+                    $totalBytes += (int)$fileInfo->getSize();
+                }
+            }
+        } catch (Exception $e) {
+            // Ignorer les erreurs de lecture partielles, retourner le total disponible.
+        }
+    }
+
+    return $totalBytes;
+}
+
+/**
+ * Calculer le poids par dossier (assets et data)
+ */
+function getStorageUsageBreakdownBytes() {
+    $breakdown = [
+        'assets' => 0,
+        'data' => 0
+    ];
+
+    $targets = [
+        'assets' => __DIR__ . '/../assets',
+        'data' => DATA_DIR
+    ];
+
+    foreach ($targets as $key => $directory) {
+        if (!is_dir($directory)) {
+            continue;
+        }
+
+        try {
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS)
+            );
+
+            foreach ($iterator as $fileInfo) {
+                if ($fileInfo->isFile()) {
+                    $breakdown[$key] += (int)$fileInfo->getSize();
+                }
+            }
+        } catch (Exception $e) {
+            // Ignorer les erreurs de lecture partielles.
+        }
+    }
+
+    $breakdown['total'] = $breakdown['assets'] + $breakdown['data'];
+    return $breakdown;
+}
+
+/**
+ * Formater une taille en octets en unite lisible (KB, MB, ...)
+ */
+function formatBytes($bytes, $precision = 2) {
+    $bytes = max(0, (float)$bytes);
+    $units = ['o', 'Ko', 'Mo', 'Go', 'To'];
+
+    $pow = $bytes > 0 ? floor(log($bytes, 1024)) : 0;
+    $pow = min($pow, count($units) - 1);
+
+    $value = $bytes / (1024 ** $pow);
+    return round($value, $precision) . ' ' . $units[$pow];
+}
+
+/**
  * Obtenir l'URL du thumbnail d'une image selon la taille
  */
 function getThumbnailUrl($imageUrl, $size = 'medium') {

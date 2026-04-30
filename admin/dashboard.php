@@ -5,6 +5,11 @@ requireAuth();
 
 $rubriques = getRubriques();
 $isMaintenance = isMaintenanceMode();
+$storageBreakdown = getStorageUsageBreakdownBytes();
+$storageUsage = formatBytes($storageBreakdown['total']);
+$storageAssets = formatBytes($storageBreakdown['assets']);
+$storageData = formatBytes($storageBreakdown['data']);
+$storageTooltip = 'assets: ' . $storageAssets . '<br>data: ' . $storageData;
 $message = null;
 $error = null;
 
@@ -104,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reorder'])) {
                 </div>
                 
                 <div class="row mb-4">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="card text-white bg-primary stats-card-compact">
                             <div class="card-body">
                                 <h5 class="card-title"><i class="bi bi-folder"></i> Pages</h5>
@@ -112,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reorder'])) {
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="card text-white <?= $isMaintenance ? 'bg-warning' : 'bg-success' ?> stats-card-compact">
                             <div class="card-body">
                                 <h5 class="card-title"><i class="bi bi-check-circle"></i> Statut</h5>
@@ -120,11 +125,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reorder'])) {
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="card text-white bg-info stats-card-compact">
                             <div class="card-body">
                                 <h5 class="card-title"><i class="bi bi-shield-lock"></i> Session</h5>
                                 <p class="card-value">Admin connecté</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-white bg-secondary stats-card-compact">
+                            <div class="card-body">
+                                <h5 class="card-title"><i class="bi bi-hdd-stack"></i> Stockage</h5>
+                                <p class="card-value">
+                                    <span data-bs-toggle="tooltip"
+                                          data-bs-html="true"
+                                          data-bs-placement="top"
+                                          title="<?= htmlspecialchars($storageTooltip) ?>"
+                                          style="text-decoration: underline dotted; cursor: help;">
+                                        <?= htmlspecialchars($storageUsage) ?>
+                                    </span>
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -231,6 +252,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reorder'])) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+
         const dashboardList = document.getElementById('dashboardRubriquesList');
         if (dashboardList && typeof Sortable !== 'undefined') {
             new Sortable(dashboardList, {
