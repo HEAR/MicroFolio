@@ -117,5 +117,5 @@ Depuis `Pages` (`admin/rubriques.php`) :
 
 ## Support
 
-MicroFolio a été vibecodé pour les étudiant·es de la la Haute école des arts du Rhin.
+🖖 MicroFolio a été vibecodé pour les étudiant·es de la la Haute école des arts du Rhin.
 
